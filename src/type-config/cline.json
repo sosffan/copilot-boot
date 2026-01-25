@@ -1,0 +1,10 @@
+{
+  "id": "cline",
+  "displayName": "Cline",
+  "root": ".clinerules",
+  "mappings": [
+    { "name": "Rules", "sourceDir": "rules", "destDir": "${root}/rules" },
+    { "name": "Prompts", "sourceDir": "prompts", "destDir": "${root}/prompts" },
+    { "name": "Skills", "sourceDir": "skills", "destDir": "${root}/skills" }
+  ]
+}

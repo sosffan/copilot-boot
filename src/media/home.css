@@ -1,0 +1,170 @@
+:root {
+    --container-pading: 20px;
+    --input-padding-vertical: 6px;
+    --input-padding-horizontal: 11px;
+    --input-margin-vertical: 3px;
+    --input-margin-horizontal: 3px;
+}
+
+body {
+    padding: var(--container-pading);
+    color: var(--vscode-foreground);
+    font-family: var(--vscode-font-family);
+    font-weight: var(--vscode-font-weight);
+    font-size: var(--vscode-font-size);
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    animation: fadeIn 0.4s ease-in-out;
+}
+
+h3 {
+    font-size: 1.1em;
+    margin-bottom: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Search / Filter Section */
+.search-container {
+    margin-bottom: 20px;
+}
+
+/* Instruction Cards */
+.instruction-card {
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    cursor: default;
+}
+
+.instruction-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--vscode-focusBorder);
+}
+
+.instruction-card.active {
+    border-left: 3px solid var(--vscode-textLink-foreground);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 1.05em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.card-desc {
+    font-size: 0.9em;
+    opacity: 0.8;
+    margin-bottom: 12px;
+    line-height: 1.4;
+}
+
+.card-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Status Badges */
+.badge {
+    font-size: 0.75em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+}
+
+.badge.linked {
+    background-color: var(--vscode-testing-iconPassed);
+    color: #fff;
+}
+
+/* Form Styling */
+.form-group {
+    margin-bottom: 20px;
+    animation: slideUp 0.3s ease-out;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+/* Navigation Links */
+.nav-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    transition: opacity 0.2s;
+}
+
+.nav-link:hover {
+    opacity: 0.8;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    opacity: 0.7;
+    border: 1px dashed var(--vscode-widget-border);
+    border-radius: 6px;
+    background: var(--vscode-editor-background);
+}
+
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--vscode-descriptionForeground);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

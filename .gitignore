@@ -137,3 +137,9 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+todo.md
+tasks.md
+.vscode/
+README 2.md
+vsc-extension-quickstart.md

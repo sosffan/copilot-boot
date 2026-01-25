@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}};">
+
+    <link rel="stylesheet" href="{{styleUri}}">
+    <script type="module" src="{{toolkitUri}}"></script>
+
+    <title>CopilotBoot Manager</title>
+</head>
+
+<body>
+    <main>
+        <div id="home-page">
+            <section class="card-header">
+                <h3>Available Instructions</h3>
+                <vscode-button id="go-to-create" appearance="primary">
+                    <span slot="start" class="codicon codicon-add"></span>
+                    Init New
+                </vscode-button>
+            </section>
+
+            <div id="instruction-list">
+                <div class="empty-state" style="border:none; padding: 40px 0;">
+                    <div class="spinner"></div>
+                    <p style="color: var(--vscode-descriptionForeground);">Scanning ~/.copilotboot ...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="create-page" class="hidden">
+            <section>
+                <a href="#" id="back-to-home" class="nav-link" style="color: var(--vscode-textLink-foreground);">
+                    <span class="codicon codicon-arrow-left"></span>
+                    Back to list
+                </a>
+
+                <h3>Initialize Instruction</h3>
+                <div class="instruction-card" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label for="inst-name">Instruction Name</label>
+                        <vscode-text-field id="inst-name" placeholder="e.g. frontend-standards"
+                            style="width: 100%;"></vscode-text-field>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inst-desc">Description</label>
+                        <vscode-text-area id="inst-desc" placeholder="What is this instruction for?" rows="3"
+                            style="width: 100%;"></vscode-text-area>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inst-type">Primary Tool Type</label>
+                        <vscode-single-select id="inst-type" style="width: 100%;">
+                            <vscode-option value="">Select a tool...</vscode-option>
+                        </vscode-single-select>
+                    </div>
+
+                    <div id="mapping-container" class="form-group hidden">
+                        <label>Sync Components</label>
+                        <div id="mapping-checkboxes"
+                            style="display: flex; flex-direction: column; gap: 8px; padding-left: 4px;">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 25px; align-items: flex-end;">
+                        <vscode-button id="save-instruction" disabled>
+                            Create & Scaffold
+                        </vscode-button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script type="module" src="{{scriptUri}}"></script>
+</body>
+
+</html>

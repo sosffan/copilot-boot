@@ -1,0 +1,62 @@
+{
+  "name": "copilotboot",
+  "displayName": "Copilot Boot",
+  "description": "Manage and symlink GitHub Copilot instructions across projects.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copilotboot-explorer",
+          "title": "CopilotBoot",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "copilotboot-explorer": [
+        {
+          "type": "webview",
+          "id": "copilotboot.mainView",
+          "name": "Instructions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "copilotboot.refreshWebview",
+        "title": "CopilotBoot: Refresh List",
+        "icon": "$(refresh)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+ "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "20.x",
+    "@types/mocha": "^10.0.6",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3",
+    "@vscode/test-electron": "^2.3.9"
+  },
+  "dependencies": {
+    "@vscode-elements/elements": "^2.4.0"
+  }
+}
