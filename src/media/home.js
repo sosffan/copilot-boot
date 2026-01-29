@@ -77,7 +77,7 @@
             toolId,
             mappings: selectedMappings
         });
-        
+
         showHomePage();
     });
 
@@ -88,10 +88,10 @@
             case 'update':
                 toolConfigs = message.tools || [];
                 currentInstructions = message.instructions || [];
-                
+
                 updateToolDropdown(toolConfigs);
                 renderInstructions(
-                    currentInstructions, 
+                    currentInstructions,
                     message.selected,
                     message.availableTools
                 );
@@ -144,28 +144,24 @@
             const isActive = selectedState && inst.id === selectedState.id;
             const card = document.createElement('div');
             card.className = `instruction-card ${isActive ? 'active' : ''}`;
-            
+
             // Safe Text Content
             const name = inst.name || 'Unnamed';
             const desc = inst.description || 'No description provided';
-            
-            // Build inner HTML with safe values
-            // Note: We use textContent for dynamic user input where possible or strict escaping if needed.
-            // Here we construct structure but insert text safely via DOM methods would be safest,
-            // but for readability/speed in this context, we'll template carefully.
-            
+
             const toolSelectorId = `tool-select-${inst.id}`;
             const linkedToolId = isActive ? selectedState.toolId : null;
 
             card.innerHTML = `
                 <div class="card-header">
                     <div class="card-title">
+                        <span class="codicon codicon-chevron-right"></span>
                         <span class="codicon codicon-beaker"></span>
                         <span class="inst-name"></span>
                     </div>
-                    ${isActive 
-                        ? '<span class="badge linked">Active</span>' 
-                        : '<span class="badge">Inactive</span>'}
+                    ${isActive
+                    ? '<span class="badge linked">Active</span>'
+                    : '<span class="badge">Inactive</span>'}
                 </div>
                 <div class="card-desc"></div>
                 <div class="card-actions">
@@ -179,6 +175,20 @@
             card.querySelector('.inst-name').textContent = name;
             card.querySelector('.card-desc').textContent = desc;
 
+            // Expand/Collapse Logic
+            const header = card.querySelector('.card-header');
+            const toggleExpand = () => card.classList.toggle('expanded');
+
+            header.addEventListener('click', (e) => {
+                // Ignore clicks on the badge
+                if (e.target.closest('.badge')) return;
+                toggleExpand();
+            });
+
+            // Also allow clicking the description to expand
+            const descEl = card.querySelector('.card-desc');
+            descEl.addEventListener('click', toggleExpand);
+
             // Populate the dropdown
             const select = card.querySelector('.tool-selector');
             availableTools.forEach(tool => {
@@ -188,18 +198,11 @@
                 if (linkedToolId === tool.id) opt.selected = true;
                 select.appendChild(opt);
             });
-            
-            // Attach data ID for delegation (or closure if we prefer, but delegation is requested)
-             // However, VS Custom Elements might not bubble 'change' correctly in all versions. 
-             // To be safe and since list is < 100 usually, direct listener here is actually safer for Web Components 
-             // unless we verify shadowing bubbling. 
-             // Implementation Plan requested delegation, but VSCode Webview elements are tricky.
-             // I will use direct listener but kept clean like this.
-             
-             select.addEventListener('change', (e) => {
-                 const val = e.target.value;
-                 handleToolChange(inst.id, val);
-             });
+
+            select.addEventListener('change', (e) => {
+                const val = e.target.value;
+                handleToolChange(inst.id, val);
+            });
 
             fragment.appendChild(card);
         });
@@ -211,10 +214,10 @@
         if (toolId === 'unlinked') {
             vscode.postMessage({ type: 'unlink', id: instructionId });
         } else {
-            vscode.postMessage({ 
-                type: 'apply', 
-                id: instructionId, 
-                toolId: toolId 
+            vscode.postMessage({
+                type: 'apply',
+                id: instructionId,
+                toolId: toolId
             });
         }
     }

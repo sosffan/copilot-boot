@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { manager } from './extensionManager';
 import { watchVariant as watchVariant, syncInstruction } from './sync';
+import { handlers } from './handlers';
 
 const BOOT_ROOT = path.join(os.homedir(), '.copilotboot');
 const VARIANTS_STORE = path.join(BOOT_ROOT, 'variants');
@@ -128,6 +129,7 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
     }
 
     private async _handleApply(id: string, toolId: string) {
+        manager.log.info("Starting to apply variant link: id - {}, toolId - {}", id, toolId)
         const folders = vscode.workspace.workspaceFolders;
         if (!folders) return vscode.window.showErrorMessage('Open a workspace first.');
 
@@ -159,7 +161,14 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
             const sourceStore = path.join(VARIANTS_STORE, id, toolId);
             const fullLinkPath = path.join(projectRoot, tool.root);
 
-            if (!fs.existsSync(sourceStore)) fs.mkdirSync(sourceStore, { recursive: true });
+            // TRANSFORM: Use the specific handler to generate variants from the master source
+            if (handlers[toolId]) {
+                manager.log.info("Running handler for tool: {}", toolId);
+                await handlers[toolId].syncSourceToVariant(instDir, sourceStore);
+            } else {
+                manager.log.warn("No specific handler found for tool: {}, creating empty directory.", toolId);
+                if (!fs.existsSync(sourceStore)) fs.mkdirSync(sourceStore, { recursive: true });
+            }
 
             const type = os.platform() === 'win32' ? 'junction' : 'dir';
             fs.symlinkSync(sourceStore, fullLinkPath, type);

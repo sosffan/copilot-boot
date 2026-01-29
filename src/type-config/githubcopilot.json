@@ -3,8 +3,20 @@
   "displayName": "GitHub Copilot",
   "root": ".github",
   "mappings": [
-    { "name": "Rules (instruction files)", "sourceDir": "rules", "destPattern": "${root}/${basename}.instruction.md" },
-    { "name": "Prompts", "sourceDir": "prompts", "destDir": "${root}/prompts" },
-    { "name": "Skills", "sourceDir": "skills", "destDir": "${root}/skills" }
+    {
+      "name": "Rules (instruction files)",
+      "sourceDir": "rules",
+      "destPattern": "./${basename}.instruction.md"
+    },
+    {
+      "name": "Prompts",
+      "sourceDir": "prompts",
+      "destDir": "prompts"
+    },
+    {
+      "name": "Skills",
+      "sourceDir": "skills",
+      "destDir": "skills"
+    }
   ]
 }
