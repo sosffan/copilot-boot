@@ -6,7 +6,7 @@
     {
       "name": "Rules",
       "sourceDir": "rules",
-      "destDir": "kilorules"
+      "destDir": "rules"
     },
     {
       "name": "Skills",

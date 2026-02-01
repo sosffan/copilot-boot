@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { manager } from './extensionManager';
 
 export interface InstructionHandler {
     /** Target directory name within ~/.copilotboot/variants/{name}/ */
@@ -52,7 +53,7 @@ function getToolConfig(id: string): ToolConfig | null {
             }
         }
     } catch (e) {
-        console.error(`[CopilotBoot] Error loading config for ${id}:`, e);
+        manager.log.error(`[CopilotBoot] Error loading config for ${id}: ${e}`);
     }
     return null;
 }
@@ -93,6 +94,7 @@ async function syncByConfig(sourceRoot: string, targetRoot: string, config: Tool
             : path.join(sourceRoot, mapping.sourceDir);
 
         if (fs.existsSync(srcPath)) {
+            manager.log.info(`[CopilotBoot] Syncing mapping "${mapping.name}" (${direction}): ${srcPath} -> ${destPath}`);
             copyFolderSync(srcPath, destPath);
         }
     }
@@ -104,26 +106,52 @@ export const handlers: Record<string, InstructionHandler> = {
         async syncSourceToVariant(sourceBase, variantPath) {
             if (!fs.existsSync(variantPath)) fs.mkdirSync(variantPath, { recursive: true });
 
-            const rulesDir = path.join(sourceBase, 'rules');
-            if (!fs.existsSync(rulesDir)) return;
+            const subDirs = ['rules', 'prompts'];
+            for (const subDir of subDirs) {
+                const srcDir = path.join(sourceBase, subDir);
+                if (!fs.existsSync(srcDir)) continue;
 
-            const files = fs.readdirSync(rulesDir);
-            for (const file of files) {
-                if (file.endsWith('.md')) {
-                    const content = fs.readFileSync(path.join(rulesDir, file), 'utf8');
-                    // GitHub Copilot prefers .instruction.md suffix
-                    const targetName = file.replace('.md', '.instruction.md');
-                    fs.writeFileSync(path.join(variantPath, targetName), content);
+                const destDir = path.join(variantPath, subDir);
+                if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+                const files = fs.readdirSync(srcDir);
+                for (const file of files) {
+                    if (file.endsWith('.md')) {
+                        const sourceFilePath = path.join(srcDir, file);
+                        const targetName = file.replace('.md', '.instruction.md');
+                        const targetFilePath = path.join(destDir, targetName);
+
+                        const srcStat = fs.statSync(sourceFilePath);
+                        if (!fs.existsSync(targetFilePath) || srcStat.mtimeMs > fs.statSync(targetFilePath).mtimeMs) {
+                            const content = fs.readFileSync(sourceFilePath, 'utf8');
+                            fs.writeFileSync(targetFilePath, content);
+                        }
+                    }
                 }
             }
         },
         async syncVariantToSource(variantPath, sourceBase) {
-            const files = fs.readdirSync(variantPath);
-            for (const file of files) {
-                if (file.endsWith('.instruction.md')) {
-                    const content = fs.readFileSync(path.join(variantPath, file), 'utf8');
-                    const sourceName = file.replace('.instruction.md', '.md');
-                    fs.writeFileSync(path.join(sourceBase, 'rules', sourceName), content);
+            const subDirs = ['rules', 'prompts'];
+            for (const subDir of subDirs) {
+                const varDir = path.join(variantPath, subDir);
+                if (!fs.existsSync(varDir)) continue;
+
+                const srcDir = path.join(sourceBase, subDir);
+                if (!fs.existsSync(srcDir)) fs.mkdirSync(srcDir, { recursive: true });
+
+                const files = fs.readdirSync(varDir);
+                for (const file of files) {
+                    if (file.endsWith('.instruction.md')) {
+                        const variantFilePath = path.join(varDir, file);
+                        const sourceName = file.replace('.instruction.md', '.md');
+                        const sourceFilePath = path.join(srcDir, sourceName);
+
+                        const variantStat = fs.statSync(variantFilePath);
+                        if (!fs.existsSync(sourceFilePath) || variantStat.mtimeMs > fs.statSync(sourceFilePath).mtimeMs) {
+                            const content = fs.readFileSync(variantFilePath, 'utf8');
+                            fs.writeFileSync(sourceFilePath, content);
+                        }
+                    }
                 }
             }
         }
@@ -134,7 +162,7 @@ export const handlers: Record<string, InstructionHandler> = {
 };
 
 /**
- * Helper to recursively copy directories
+ * Helper to recursively copy directories with mtime check to prevent infinite loops.
  */
 function copyFolderSync(from: string, to: string) {
     if (!fs.existsSync(to)) fs.mkdirSync(to, { recursive: true });
@@ -143,8 +171,11 @@ function copyFolderSync(from: string, to: string) {
         const fromPath = path.join(from, element);
         const toPath = path.join(to, element);
         const stat = fs.lstatSync(fromPath);
+
         if (stat.isFile()) {
-            fs.copyFileSync(fromPath, toPath);
+            if (!fs.existsSync(toPath) || stat.mtimeMs > fs.statSync(toPath).mtimeMs) {
+                fs.copyFileSync(fromPath, toPath);
+            }
         } else if (stat.isDirectory()) {
             copyFolderSync(fromPath, toPath);
         }

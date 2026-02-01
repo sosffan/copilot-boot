@@ -4,14 +4,9 @@
   "root": ".github",
   "mappings": [
     {
-      "name": "Rules (instruction files)",
+      "name": "Custom Instruction",
       "sourceDir": "rules",
       "destPattern": "./${basename}.instruction.md"
-    },
-    {
-      "name": "Prompts",
-      "sourceDir": "prompts",
-      "destDir": "prompts"
     },
     {
       "name": "Skills",

@@ -1,116 +1,116 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { manager } from './extensionManager';
 
 const BOOT_ROOT = path.join(os.homedir(), '.copilotboot');
-const VARIANTS_STORE = path.join(BOOT_ROOT, 'variants'); 
+const TEMPLATES_STORE = path.join(BOOT_ROOT, 'templates');
+const VARIANTS_STORE = path.join(BOOT_ROOT, 'variants');
+
+import { handlers } from './handlers';
 
 const syncLocks = new Set<string>();
 const debounceTimeouts = new Map<string, NodeJS.Timeout>();
+const instructionSyncInProgress = new Set<string>();
 
 /**
- * Core synchronization logic that uses .bootconfig.json to map files
+ * Syncs a specific variant back to the template, then updates all other variants.
+ */
+export async function syncVariantToTemplate(instructionName: string, toolId: string): Promise<void> {
+    const lockKey = `${instructionName}:${toolId}`;
+    if (syncLocks.has(lockKey) || instructionSyncInProgress.has(instructionName)) return;
+
+    syncLocks.add(lockKey);
+    instructionSyncInProgress.add(instructionName);
+
+    try {
+        const templatePath = path.join(TEMPLATES_STORE, instructionName);
+        const variantPath = path.join(VARIANTS_STORE, instructionName, toolId);
+
+        if (!fs.existsSync(templatePath) || !fs.existsSync(variantPath)) return;
+
+        manager.log.info(`[CopilotBoot] [${instructionName}] Syncing ${toolId} variant -> template`);
+
+        // 1. Sync Variant -> Template
+        if (handlers[toolId]) {
+            await handlers[toolId].syncVariantToSource(variantPath, templatePath);
+        }
+
+        // 2. Fan-out: Sync Template -> All OTHER Variants
+        // This will update other tool folders under TEMPLATES_STORE/instructionName
+        await syncTemplateToVariants(instructionName, toolId);
+
+    } catch (err) {
+        manager.log.error(`[CopilotBoot] [${instructionName}] Sync back failed for ${toolId}: ${err}`);
+    } finally {
+        // Keep the instruction lock for a short cooldown to swallow secondary watcher events
+        setTimeout(() => {
+            instructionSyncInProgress.delete(instructionName);
+            syncLocks.delete(lockKey);
+        }, 1000);
+    }
+}
+
+/**
+ * Syncs the template to all tool variants for this instruction.
+ * Optionally skip one tool (the one that just synced back).
+ */
+export async function syncTemplateToVariants(instructionName: string, skipToolId?: string): Promise<void> {
+    const templatePath = path.join(TEMPLATES_STORE, instructionName);
+    if (!fs.existsSync(templatePath)) return;
+
+    const variantRoot = path.join(VARIANTS_STORE, instructionName);
+    if (!fs.existsSync(variantRoot)) return;
+
+    const toolIds = fs.readdirSync(variantRoot).filter(d => fs.lstatSync(path.join(variantRoot, d)).isDirectory());
+
+    for (const toolId of toolIds) {
+        if (toolId === skipToolId) continue;
+        if (handlers[toolId]) {
+            const variantPath = path.join(variantRoot, toolId);
+            manager.log.info(`[CopilotBoot] [${instructionName}] Fanning out: template -> ${toolId}`);
+            await handlers[toolId].syncSourceToVariant(templatePath, variantPath);
+        }
+    }
+}
+
+/**
+ * Wrapper for template-to-variants
  */
 export async function syncInstruction(instructionName: string, direction: 'v2s' | 's2v' = 'v2s'): Promise<void> {
-    if (syncLocks.has(instructionName)) return;
-    syncLocks.add(instructionName);
-
-    try {
-        const sourceBase = path.join(BOOT_ROOT, instructionName);
-        const bootConfigPath = path.join(sourceBase, '.bootconfig.json');
-
-        if (!fs.existsSync(bootConfigPath)) return;
-
-        // Load the instruction-specific configuration
-        const { toolId, mappings } = JSON.parse(fs.readFileSync(bootConfigPath, 'utf8'));
-        
-        // Load the tool definition (e.g., kilo.json) to get directory rules
-        // Note: This assumes the extension is running and can access its own src/type-config
-        // In production, you'd pass this config path or the loaded tool config.
-        const toolConfig = await getToolConfigById(toolId);
-        if (!toolConfig) return;
-
-        const variantPath = path.join(VARIANTS_STORE, instructionName, toolId);
-        if (!fs.existsSync(variantPath)) fs.mkdirSync(variantPath, { recursive: true });
-
-        // Iterate through only the mappings the user enabled for this instruction
-        for (const mappingName of mappings) {
-            const mapDef = toolConfig.mappings.find((m: any) => m.name === mappingName);
-            if (!mapDef) continue;
-
-            // Handle variable substitution for ${root} if necessary, though for sync 
-            // we usually just care about sourceDir -> destDir relative to roots.
-            const sourceDir = path.join(sourceBase, mapDef.sourceDir);
-            const targetDir = path.join(variantPath, mapDef.destDir.replace('${root}/', ''));
-
-            if (direction === 's2v') {
-                syncFolders(sourceDir, targetDir);
-            } else {
-                syncFolders(targetDir, sourceDir);
-            }
-        }
-    } catch (err) {
-        console.error(`Sync failed for ${instructionName}:`, err);
-    } finally {
-        setTimeout(() => syncLocks.delete(instructionName), 300);
+    if (direction === 's2v') {
+        await syncTemplateToVariants(instructionName);
     }
-}
-
-/**
- * Simple recursive folder sync (can be enhanced with more complex logic if needed)
- */
-function syncFolders(from: string, to: string) {
-    if (!fs.existsSync(from)) return;
-    if (!fs.existsSync(to)) fs.mkdirSync(to, { recursive: true });
-
-    const files = fs.readdirSync(from);
-    for (const file of files) {
-        const srcFile = path.join(from, file);
-        const destFile = path.join(to, file);
-
-        if (fs.lstatSync(srcFile).isDirectory()) {
-            syncFolders(srcFile, destFile);
-        } else {
-            // Only copy if modified or non-existent to prevent infinite loops
-            const srcStat = fs.statSync(srcFile);
-            if (!fs.existsSync(destFile) || srcStat.mtimeMs > fs.statSync(destFile).mtimeMs) {
-                fs.copyFileSync(srcFile, destFile);
-            }
-        }
-    }
-}
-
-/**
- * Helper to fetch tool config. In a real extension, you might pass this from manager.
- */
-async function getToolConfigById(toolId: string) {
-    // This is a placeholder logic - in extension.ts we already have this list.
-    // You may want to move the getToolConfigs logic to a shared utility.
-    try {
-        // Adjust this path based on your build structure (out vs src)
-        const configPath = path.join(__dirname, 'type-config', `${toolId}.json`);
-        if (fs.existsSync(configPath)) {
-            return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        }
-    } catch (e) { return null; }
-    return null;
 }
 
 export function watchVariant(instructionName: string) {
     const watchTarget = path.join(VARIANTS_STORE, instructionName);
-    if (!fs.existsSync(watchTarget)) return null;
+    if (!fs.existsSync(watchTarget)) {
+        manager.log.warn(`[CopilotBoot] Watch target does not exist: ${watchTarget}`);
+        return null;
+    }
+
+    manager.log.info(`[CopilotBoot] Monitoring instruction for changes: ${instructionName}`);
 
     return fs.watch(watchTarget, { recursive: true }, (event, filename) => {
         if (!filename || filename.includes('.git') || filename.endsWith('~')) return;
 
-        const existingTimeout = debounceTimeouts.get(instructionName);
+        // Path is toolId/...
+        const parts = filename.split(path.sep);
+        const toolId = parts[0];
+
+        // If we're already syncing this instruction, ignore events (especially from our own writes)
+        if (instructionSyncInProgress.has(instructionName)) return;
+
+        const debounceKey = `${instructionName}:${toolId}`;
+        const existingTimeout = debounceTimeouts.get(debounceKey);
         if (existingTimeout) clearTimeout(existingTimeout);
 
         const newTimeout = setTimeout(async () => {
-            await syncInstruction(instructionName, 'v2s');
-            debounceTimeouts.delete(instructionName);
+            await syncVariantToTemplate(instructionName, toolId);
+            debounceTimeouts.delete(debounceKey);
         }, 500);
 
-        debounceTimeouts.set(instructionName, newTimeout);
+        debounceTimeouts.set(debounceKey, newTimeout);
     });
 }

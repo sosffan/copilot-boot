@@ -14,9 +14,11 @@
     const btnSave = document.getElementById('save-instruction');
     const inputName = document.getElementById('inst-name');
     const inputDesc = document.getElementById('inst-desc');
+    const nameError = document.getElementById('name-error');
     const selectType = document.getElementById('inst-type');
     const mappingContainer = document.getElementById('mapping-container');
-    const mappingCheckboxes = document.getElementById('mapping-checkboxes');
+    const multiSelectMapping = document.getElementById('inst-mapping');
+    const createErrorBanner = document.getElementById('create-error-banner');
 
     // Global state
     let toolConfigs = [];
@@ -37,6 +39,11 @@
         resetCreateForm();
     }
 
+    function showCreateError(message) {
+        createErrorBanner.textContent = message;
+        createErrorBanner.style.display = 'block';
+    }
+
     btnGoToCreate.addEventListener('click', showCreatePage);
 
     btnBackToHome.addEventListener('click', (e) => {
@@ -45,6 +52,22 @@
     });
 
     // 3. Form Logic
+    function validateForm() {
+        const name = inputName.value.trim();
+        const toolId = selectType.value;
+        const nameRegex = /^[a-zA-Z0-9\-_]+$/;
+
+        const isNameValid = nameRegex.test(name);
+        nameError.style.display = (name && !isNameValid) ? 'block' : 'none';
+
+        // Clear creation error when user fixes the name
+        createErrorBanner.style.display = 'none';
+
+        btnSave.disabled = !name || !isNameValid || !toolId;
+    }
+
+    inputName.addEventListener('input', validateForm);
+
     selectType.addEventListener('change', (e) => {
         const selectedId = e.target.value;
         const tool = toolConfigs.find(t => t.id === selectedId);
@@ -52,11 +75,10 @@
         if (tool && tool.mappings) {
             renderMappings(tool.mappings);
             mappingContainer.classList.remove('hidden');
-            btnSave.disabled = false;
         } else {
             mappingContainer.classList.add('hidden');
-            btnSave.disabled = true; // Or false if mappings aren't mandatory? Assuming true based on original
         }
+        validateForm();
     });
 
     btnSave.addEventListener('click', () => {
@@ -66,9 +88,9 @@
 
         if (!name || !toolId) return;
 
-        const selectedMappings = Array.from(mappingCheckboxes.querySelectorAll('vscode-checkbox'))
-            .filter(cb => cb.checked)
-            .map(cb => cb.value);
+        const selectedMappings = Array.from(multiSelectMapping.querySelectorAll('vscode-option'))
+            .filter(opt => opt.selected)
+            .map(opt => opt.value);
 
         vscode.postMessage({
             type: 'create',
@@ -78,7 +100,8 @@
             mappings: selectedMappings
         });
 
-        showHomePage();
+        // DO NOT showHomePage() here. 
+        // We stay on the page until we get an 'update' (success) or 'createError' (failure).
     });
 
     // 4. Message Handling
@@ -86,7 +109,7 @@
         const message = event.data;
         switch (message.type) {
             case 'update':
-                toolConfigs = message.tools || [];
+                toolConfigs = message.availableTools || [];
                 currentInstructions = message.instructions || [];
 
                 updateToolDropdown(toolConfigs);
@@ -95,6 +118,14 @@
                     message.selected,
                     message.availableTools
                 );
+
+                // If we were on the create page, go back home now that it's finished
+                if (!createPage.classList.contains('hidden')) {
+                    showHomePage();
+                }
+                break;
+            case 'createError':
+                showCreateError(message.message);
                 break;
         }
     });
@@ -111,13 +142,13 @@
     }
 
     function renderMappings(mappings) {
-        mappingCheckboxes.innerHTML = '';
+        multiSelectMapping.innerHTML = '';
         mappings.forEach(m => {
-            const cb = document.createElement('vscode-checkbox');
-            cb.value = m.name;
-            cb.textContent = m.name;
-            cb.checked = true;
-            mappingCheckboxes.appendChild(cb);
+            const opt = document.createElement('vscode-option');
+            opt.value = m.name;
+            opt.textContent = m.name;
+            opt.selected = true;
+            multiSelectMapping.appendChild(opt);
         });
     }
 
@@ -166,7 +197,7 @@
                 <div class="card-desc"></div>
                 <div class="card-actions">
                     <vscode-single-select id="${toolSelectorId}" class="tool-selector" style="min-width: 150px;">
-                        <vscode-option value="unlinked" ${!isActive ? 'selected' : ''}>Unlinked</vscode-option>
+                        <vscode-option value="unlinked" ${!isActive ? 'selected' : ''}>None</vscode-option>
                     </vscode-single-select>
                 </div>
             `;
@@ -194,7 +225,7 @@
             availableTools.forEach(tool => {
                 const opt = document.createElement('vscode-option');
                 opt.value = tool.id;
-                opt.textContent = `Link as ${tool.displayName}`;
+                opt.textContent = tool.displayName;
                 if (linkedToolId === tool.id) opt.selected = true;
                 select.appendChild(opt);
             });
@@ -225,9 +256,11 @@
     function resetCreateForm() {
         inputName.value = '';
         inputDesc.value = '';
+        if (nameError) nameError.style.display = 'none';
+        if (createErrorBanner) createErrorBanner.style.display = 'none';
         selectType.value = '';
         mappingContainer.classList.add('hidden');
-        mappingCheckboxes.innerHTML = '';
+        multiSelectMapping.innerHTML = '';
         btnSave.disabled = true;
     }
 }());

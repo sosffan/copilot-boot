@@ -7,6 +7,7 @@ import { watchVariant as watchVariant, syncInstruction } from './sync';
 import { handlers } from './handlers';
 
 const BOOT_ROOT = path.join(os.homedir(), '.copilotboot');
+const TEMPLATES_STORE = path.join(BOOT_ROOT, 'templates');
 const VARIANTS_STORE = path.join(BOOT_ROOT, 'variants');
 
 // Configuration Interface
@@ -21,6 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
     manager.init(context);
 
     if (!fs.existsSync(BOOT_ROOT)) fs.mkdirSync(BOOT_ROOT);
+    if (!fs.existsSync(TEMPLATES_STORE)) fs.mkdirSync(TEMPLATES_STORE);
     if (!fs.existsSync(VARIANTS_STORE)) fs.mkdirSync(VARIANTS_STORE);
 
     manager.log.info('CopilotBoot active');
@@ -77,6 +79,9 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
                 case 'apply':
                     await this._handleApply(data.id, data.toolId);
                     break;
+                case 'unlink':
+                    await this._handleUnlink();
+                    break;
             }
         });
     }
@@ -97,32 +102,66 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
     }
 
     private async _handleCreate(data: { name: string, description: string, toolId: string, mappings: string[] }) {
-        const targetDir = path.join(BOOT_ROOT, data.name);
+        const targetDir = path.join(TEMPLATES_STORE, data.name);
         try {
             if (fs.existsSync(targetDir)) {
-                throw new Error("Instruction already exists.");
+                this._view?.webview.postMessage({ type: 'createError', message: "Instruction already exists." });
+                return;
             }
 
             const configs = this._getToolConfigs();
             const selectedTool = configs.find(t => t.id === data.toolId);
             if (!selectedTool) throw new Error("Invalid tool selected.");
 
-            // 1. Scaffold Master Folder
+            // 1. Scaffold Master Folder from Embedded Template
             fs.mkdirSync(targetDir, { recursive: true });
             fs.writeFileSync(path.join(targetDir, 'description.md'), data.description || `# ${data.name}`);
 
-            // 2. Scaffold source directories based on selected mappings
+            // Find embedded template root - use project source for reliability in development
+            const embeddedTemplateRoot = path.join(this._extensionUri.fsPath, 'src', 'template');
+
+            const copyRecursiveSync = (src: string, dest: string) => {
+                if (!fs.existsSync(src)) return;
+                const stats = fs.statSync(src);
+                if (stats.isDirectory()) {
+                    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+                    fs.readdirSync(src).forEach((childItemName) => {
+                        copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
+                    });
+                } else {
+                    fs.copyFileSync(src, dest);
+                }
+            };
+
+            // Helper to copy files if mapping matches
+            const copyFromTemplate = (subDir: string) => {
+                const srcPath = path.join(embeddedTemplateRoot, subDir);
+                const destPath = path.join(targetDir, subDir);
+                if (fs.existsSync(srcPath)) {
+                    copyRecursiveSync(srcPath, destPath);
+                }
+            };
+
+            // Scaffold source directories based on selected mappings
             data.mappings.forEach(mName => {
                 const mapping = selectedTool.mappings.find(m => m.name === mName);
                 if (mapping) {
-                    const sourcePath = path.join(targetDir, mapping.sourceDir);
-                    if (!fs.existsSync(sourcePath)) fs.mkdirSync(sourcePath, { recursive: true });
+                    // Try to copy from common Claude-style folders
+                    copyFromTemplate(mapping.sourceDir);
+                    // Ensure the folder exists even if template didn't have it
+                    const fullDest = path.join(targetDir, mapping.sourceDir);
+                    if (!fs.existsSync(fullDest)) fs.mkdirSync(fullDest, { recursive: true });
                 }
             });
 
-            await syncInstruction(data.name, 's2v');
+            // 2. Refresh so the list updates
             await this.refresh();
-            vscode.window.showInformationMessage(`Instruction "${data.name}" created for ${selectedTool.displayName}.`);
+
+            // 3. Auto-Apply
+            manager.log.info("Auto-applying new instruction: {}", data.name);
+            await this._handleApply(data.name, data.toolId);
+
+            vscode.window.showInformationMessage(`Instruction "${data.name}" initialized and applied for ${selectedTool.displayName}.`);
         } catch (err: any) {
             vscode.window.showErrorMessage(`Creation failed: ${err.message}`);
         }
@@ -134,7 +173,7 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
         if (!folders) return vscode.window.showErrorMessage('Open a workspace first.');
 
         const projectRoot = folders[0].uri.fsPath;
-        const instDir = path.join(BOOT_ROOT, id);
+        const instDir = path.join(TEMPLATES_STORE, id);
 
         const configs = this._getToolConfigs();
         const tool = configs.find(t => t.id === toolId);
@@ -186,6 +225,38 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
+    private async _handleUnlink() {
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders) return;
+
+        const projectRoot = folders[0].uri.fsPath;
+        const configs = this._getToolConfigs();
+
+        try {
+            // Remove any root folder defined by any tool config
+            configs.forEach(conf => {
+                const oldPath = path.join(projectRoot, conf.root);
+                if (fs.existsSync(oldPath)) {
+                    const stat = fs.lstatSync(oldPath);
+                    if (stat.isSymbolicLink()) {
+                        fs.unlinkSync(oldPath);
+                    } else {
+                        fs.rmSync(oldPath, { recursive: true, force: true });
+                    }
+                    manager.log.info(`Cleaned up tool path: ${conf.root}`);
+                }
+            });
+
+            await this._context.globalState.update('copilotboot.selectedInstruction', undefined);
+            await this._context.globalState.update('copilotboot.selectedState', undefined);
+
+            await this.refresh();
+            vscode.window.showInformationMessage('Unlinked instruction.');
+        } catch (err: any) {
+            vscode.window.showErrorMessage(`Unlink failed: ${err.message}`);
+        }
+    }
+
     // Inside extension.ts -> CopilotBootViewProvider class
 
     public async refresh() {
@@ -205,12 +276,12 @@ class CopilotBootViewProvider implements vscode.WebviewViewProvider {
                 });
         }
 
-        // 2. Get Instructions from ~/.copilotboot
-        const entries = fs.readdirSync(BOOT_ROOT, { withFileTypes: true });
+        // 2. Get Instructions from ~/.copilotboot/templates
+        const entries = fs.readdirSync(TEMPLATES_STORE, { withFileTypes: true });
         const instructions = entries
             .filter(e => e.isDirectory() && e.name !== 'variants')
             .map(d => {
-                const descPath = path.join(BOOT_ROOT, d.name, 'description.md');
+                const descPath = path.join(TEMPLATES_STORE, d.name, 'description.md');
                 return {
                     id: d.name,
                     name: d.name,

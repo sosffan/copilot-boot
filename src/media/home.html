@@ -27,49 +27,68 @@
             <div id="instruction-list">
                 <div class="empty-state" style="border:none; padding: 40px 0;">
                     <div class="spinner"></div>
-                    <p style="color: var(--vscode-descriptionForeground);">Scanning ~/.copilotboot ...</p>
+                    <p style="color: var(--vscode-descriptionForeground);">Scanning ~/.copilotboot/templates ...</p>
                 </div>
             </div>
         </div>
 
         <div id="create-page" class="hidden">
             <section>
-                <a href="#" id="back-to-home" class="nav-link" style="color: var(--vscode-textLink-foreground);">
+                <a href="#" id="back-to-home" class="nav-link"
+                    style="color: var(--vscode-textLink-foreground); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 16px;">
                     <span class="codicon codicon-arrow-left"></span>
-                    Back to list
+                    Back to Overview
                 </a>
 
-                <h3>Initialize Instruction</h3>
-                <div class="instruction-card" style="margin-top: 20px;">
-                    <div class="form-group">
-                        <label for="inst-name">Instruction Name</label>
-                        <vscode-text-field id="inst-name" placeholder="e.g. frontend-standards"
-                            style="width: 100%;"></vscode-text-field>
-                    </div>
+                <h2 style="margin: 0 0 20px 0; font-weight: 600;">Initialize New Instruction</h2>
 
-                    <div class="form-group">
-                        <label for="inst-desc">Description</label>
-                        <vscode-text-area id="inst-desc" placeholder="What is this instruction for?" rows="3"
-                            style="width: 100%;"></vscode-text-area>
-                    </div>
+                <div id="create-error-banner"
+                    style="display: none; background: var(--vscode-statusBarItem-errorBackground); color: var(--vscode-statusBarItem-errorForeground); padding: 8px 12px; margin-bottom: 20px; border-radius: 4px; font-size: 12px;">
+                </div>
 
+                <div class="instruction-card" style="margin-top: 10px; border: 1px solid var(--vscode-widget-border);">
                     <div class="form-group">
-                        <label for="inst-type">Primary Tool Type</label>
-                        <vscode-single-select id="inst-type" style="width: 100%;">
-                            <vscode-option value="">Select a tool...</vscode-option>
-                        </vscode-single-select>
-                    </div>
-
-                    <div id="mapping-container" class="form-group hidden">
-                        <label>Sync Components</label>
-                        <div id="mapping-checkboxes"
-                            style="display: flex; flex-direction: column; gap: 8px; padding-left: 4px;">
+                        <label for="inst-name"
+                            style="display: block; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; opacity: 0.8;">Instruction
+                            Name</label>
+                        <vscode-textfield id="inst-name" placeholder="e.g. backend-api (slug format)"
+                            style="width: 100%;"></vscode-textfield>
+                        <div id="name-error"
+                            style="color: var(--vscode-errorForeground); font-size: 11px; margin-top: 4px; display: none;">
+                            Use only letters, numbers, hyphens and underscores.
                         </div>
                     </div>
 
-                    <div class="form-group" style="margin-top: 25px; align-items: flex-end;">
-                        <vscode-button id="save-instruction" disabled>
-                            Create & Scaffold
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label for="inst-desc"
+                            style="display: block; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; opacity: 0.8;">Detailed
+                            Description</label>
+                        <vscode-textarea id="inst-desc" placeholder="What coding standards or logic does this cover?"
+                            rows="4" style="width: 100%;"></vscode-textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label for="inst-type"
+                            style="display: block; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; opacity: 0.8;">Target
+                            AI Tool</label>
+                        <vscode-single-select id="inst-type" style="width: 100%;">
+                            <vscode-option value="">Select tool architecture...</vscode-option>
+                        </vscode-single-select>
+                    </div>
+
+                    <div id="mapping-container" class="form-group hidden" style="margin-top: 16px;">
+                        <label
+                            style="display: block; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; opacity: 0.8;">Components
+                            to Standardize</label>
+                        <vscode-multi-select id="inst-mapping" style="width: 100%;">
+                            <!-- Dynamic options -->
+                        </vscode-multi-select>
+                    </div>
+
+                    <div class="form-group"
+                        style="margin-top: 30px; border-top: 1px solid var(--vscode-divider); padding-top: 20px;">
+                        <vscode-button id="save-instruction" disabled style="width: 100%;">
+                            Scaffold & Apply Instruction
                         </vscode-button>
                     </div>
                 </div>
