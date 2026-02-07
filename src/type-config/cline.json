@@ -1,22 +1,21 @@
 {
   "id": "cline",
   "displayName": "Cline",
-  "root": ".clinerules",
   "mappings": [
     {
       "name": "Rules",
       "sourceDir": "rules",
-      "destDir": "rules"
+      "destDir": ".clinerules/rules"
     },
     {
       "name": "Prompts",
       "sourceDir": "prompts",
-      "destDir": "prompts"
+      "destDir": ".clinerules/prompts"
     },
     {
       "name": "Skills",
       "sourceDir": "skills",
-      "destDir": "skills"
+      "destDir": ".clinerules/skills"
     }
   ]
 }

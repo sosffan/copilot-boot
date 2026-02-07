@@ -1,22 +1,21 @@
 {
   "id": "kilo",
   "displayName": "Kilo",
-  "root": ".kilocode",
   "mappings": [
     {
       "name": "Rules",
       "sourceDir": "rules",
-      "destDir": "rules"
+      "destDir": ".kilocode/rules"
     },
     {
       "name": "Skills",
       "sourceDir": "skills",
-      "destDir": "skills"
+      "destDir": ".kilocode/skills"
     },
     {
       "name": "Prompts",
       "sourceDir": "prompts",
-      "destDir": "prompts"
+      "destDir": ".kilocode/prompts"
     }
   ]
 }

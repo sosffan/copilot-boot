@@ -1,5 +1,7 @@
 (function () {
+    console.log('[CopilotBoot] home.js initializing...');
     const vscode = acquireVsCodeApi();
+    console.log('[CopilotBoot] vscode API acquired:', !!vscode);
 
     // Elements - Pages
     const homePage = document.getElementById('home-page');
@@ -104,7 +106,29 @@
         // We stay on the page until we get an 'update' (success) or 'createError' (failure).
     });
 
-    // 4. Message Handling
+    // 4. Event Delegation for Delete Buttons (set up once)
+    console.log('[CopilotBoot] Setting up delete button event delegation on:', instructionList);
+    instructionList.addEventListener('click', (e) => {
+        console.log('[CopilotBoot] instructionList clicked, target:', e.target);
+        const removeBtn = e.target.closest('.remove-btn');
+        console.log('[CopilotBoot] Closest remove-btn:', removeBtn);
+        if (removeBtn) {
+            const instructionId = removeBtn.dataset.instructionId;
+            const instructionName = removeBtn.dataset.instructionName;
+            console.log('[CopilotBoot] Delete button clicked for:', instructionId, 'name:', instructionName);
+            e.stopPropagation();
+            e.preventDefault();
+
+            // Note: confirm() doesn't work in sandboxed webviews
+            // Confirmation will be handled by the extension backend
+            console.log('[CopilotBoot] Posting delete message to extension');
+            vscode.postMessage({ type: 'delete', id: instructionId });
+            console.log('[CopilotBoot] Delete message posted');
+        }
+    });
+    console.log('[CopilotBoot] Delete button event delegation set up complete');
+
+    // 5. Message Handling
     window.addEventListener('message', event => {
         const message = event.data;
         switch (message.type) {
@@ -199,12 +223,19 @@
                     <vscode-single-select id="${toolSelectorId}" class="tool-selector" style="min-width: 150px;">
                         <vscode-option value="unlinked" ${!isActive ? 'selected' : ''}>None</vscode-option>
                     </vscode-single-select>
+                    <button class="remove-btn" data-instruction-id="${inst.id}" data-instruction-name="${name}" title="Delete this instruction" style="margin-left: 8px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); border: 1px solid var(--vscode-button-border); padding: 4px 10px; cursor: pointer; border-radius: 2px; font-size: 14px; font-weight: bold;">
+                        ×
+                    </button>
                 </div>
             `;
 
             // inject text content safely
             card.querySelector('.inst-name').textContent = name;
             card.querySelector('.card-desc').textContent = desc;
+
+            // Debug: verify button was created
+            const debugBtn = card.querySelector('.remove-btn');
+            console.log('[CopilotBoot] Button created for', inst.id, ':', debugBtn, 'has data-id:', debugBtn?.dataset?.instructionId);
 
             // Expand/Collapse Logic
             const header = card.querySelector('.card-header');

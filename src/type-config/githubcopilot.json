@@ -1,17 +1,16 @@
 {
   "id": "githubcopilot",
   "displayName": "GitHub Copilot",
-  "root": ".github",
   "mappings": [
     {
       "name": "Custom Instruction",
       "sourceDir": "rules",
-      "destPattern": "./${basename}.instruction.md"
+      "destPattern": ".github/${basename}.instruction.md"
     },
     {
       "name": "Skills",
       "sourceDir": "skills",
-      "destDir": "skills"
+      "destDir": ".github/skills"
     }
   ]
 }
